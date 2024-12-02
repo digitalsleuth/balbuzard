@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 """
 balbuzard
 
@@ -6,11 +6,10 @@ Balbuzard is a tool to quickly extract patterns from suspicious files for
 malware analysis (IP addresses, domain names, known file headers and strings,
 etc).
 
-Author: Philippe Lagadec - http://www.decalage.info
+Author: Philippe Lagadec
 License: BSD, see source code or documentation
 
-Project Repository: https://github.com/decalage2/balbuzard
-For more info and updates: http://www.decalage.info/balbuzard
+Project Repository: https://github.com/digitalsleuth/balbuzard
 """
 
 # LICENSE:
@@ -38,7 +37,7 @@ For more info and updates: http://www.decalage.info/balbuzard
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # CHANGELOG:
 # 2007-07-11 v0.01 PL: - 1st version
 # 2007-07-30 v0.02 PL: - added list of patterns
@@ -81,10 +80,10 @@ For more info and updates: http://www.decalage.info/balbuzard
 # 2014-06-29 v0.20 PL: - simplified bbcrack transforms, added Yara signatures
 # 2019-06-16       PL: - added main function for pip entry points (issue #8)
 
-__version__ = '0.20'
+__version__ = "1.00"
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # TODO:
 # + add yara plugins support to Balbuzard.count and scan_profiling
 # + merge Balbuzard.scan_hexdump and short
@@ -114,199 +113,44 @@ __version__ = '0.20'
 # - BUG: the e-mail pattern catches a lot of false positives.
 
 
-#--- IMPORTS ------------------------------------------------------------------
+# --- IMPORTS ------------------------------------------------------------------
 
-import sys, re, os, os.path, optparse, glob, zipfile, time, string, fnmatch, imp
+import sys
+import re
+import os
+import os.path
+import argparse
+import glob
+import zipfile
+import time
+import fnmatch
 import csv
 
-# try to import magic.py - see http://www.jsnp.net/code/magic.py or PyPI/magic
 try:
-    from thirdparty.magic import magic
+    import magic
+
     MAGIC = True
-except:
+except (ImportError, ModuleNotFoundError):
     MAGIC = False
 
-# try to import yara-python:
 try:
     import yara
+
     YARA = True
-except:
+except (ImportError, ModuleNotFoundError):
     YARA = False
 
+try:
+    from bbpatterns import Pattern, Pattern_re, patterns
+except (ImportError, ModuleNotFoundError):
+    from balbuzard.bbpatterns import Pattern, Pattern_re, patterns
 
-#--- CLASSES ------------------------------------------------------------------
-
-class Pattern (object):
-    """
-    a Pattern object is a string or a list of strings to be searched in data.
-    Attributes:
-        - name: str, description of the pattern for display
-        - pat: str or list/tuple of strings to be searched
-        - nocase: bool, if True, search is case-insensitive
-        - single: bool, if True search will stop at the first occurence
-        - weight: int, weight used by balbucrack
-        - filt: function to filter out false positives, should be a function
-          with arguments (value, index, pattern), returning True when acceptable
-          or False when it is a false positive.
-    """
-
-    def __init__(self, name, pat=None, nocase=False, single=False, weight=1,
-        filt=None):
-        self.name = name
-        # self.pat should always be a list of strings:
-        if isinstance(pat, str):
-            self.pat = [pat]
-        else:
-            # else we assume it's a sequence:
-            self.pat = pat
-        self.nocase = nocase
-        if nocase:
-            # transform pat to lowercase
-            self.pat_lower = map(string.lower, self.pat)
-        self.single = single
-        self.weight = weight
-        # for profiling:
-        self.total_time = 0
-        self.filter = filt
+MAIN_DIR = os.path.dirname(__file__)
+PLUGINS_DIR = os.path.join(MAIN_DIR, "plugins")
 
 
-    def find_all (self, data, data_lower=None):
-        """
-        find all occurences of pattern in data.
-        data_lower should be set to data.lower(), if there are case-insensitive
-        patterns (it's better to do it only once)
-        return a list of tuples (index, string)
-        """
-        found = []
-        if self.nocase:
-            d = data_lower
-            pat = self.pat_lower
-        else:
-            d = data
-            pat = self.pat
-        for s in pat:
-            l = len(s)
-            for i in str_find_all(d, s):
-                # the matched string is not always s, case can differ:
-                match = data[i:i+len(s)]
-                valid = True
-                if self.filter is not None:
-                    valid = self.filter(value=match, index=i, pattern=self)
-                if valid: found.append((i, match))
-                # debug message:
-                else: print 'Filtered out %s: %s' % (self.name, repr(match))
-        return found
-
-
-    def count (self, data, data_lower=None):
-        """
-        count all occurences of pattern in data.
-        Except for those with single=True, only the first occurence of any
-        string is counted.
-        data_lower should be set to data.lower(), if there are case-insensitive
-        patterns (it's better to do it only once)
-        return an integer
-        """
-        #TODO: add support for filter? (will be much slower...)
-        count = 0
-        if self.nocase:
-            d = data_lower
-            pat = self.pat_lower
-        else:
-            d = data
-            pat = self.pat
-        if not self.single:
-            for s in pat:
-                count += d.count(s)
-            return count
-        else:
-            for s in pat:
-                if s in d:
-                    return 1
-            return 0
-
-
-
-class Pattern_re (Pattern):
-    """
-    a Pattern_re object is a regular expression to be searched in data.
-    Attributes:
-        - name: str, description of the pattern for display
-        - pat: str, regular expression to be searched
-        - trigger: str or list/tuple of strings to be searched before pat
-        - nocase: bool, if True, search is case-insensitive
-        - single: bool, if True search will stop at the first occurence
-        - weight: int, weight used by balbucrack
-        - filt: function to filter out false positives, should be a function
-          with arguments (value, index, pattern), returning True when acceptable
-          or False when it is a false positive.
-    """
-
-    def __init__(self, name, pat=None, trigger=None, nocase=False, single=False,
-        weight=1, filt=None):
-        # first call the Pattern constructor:
-        Pattern.__init__(self, name, pat, nocase, single, weight)
-        # compile regex
-        flags = 0
-        if nocase:
-            flags = re.IGNORECASE
-        self.pat = re.compile(pat, flags)
-        self.trigger = trigger
-        if trigger is not None:
-            # create second pattern for trigger, for single search:
-            self.trigger_pat = Pattern(name, pat=trigger, nocase=nocase, single=True)
-        self.filter = filt
-        #print 'pattern %s: filter=%s' % (self.name, self.filter)
-
-
-    def find_all (self, data, data_lower=None):
-        """
-        find all occurences of pattern in data.
-        data_lower should be set to data.lower(), if there are case-insensitive
-        patterns (it's better to do it only once)
-        return a list of tuples (index, string)
-        """
-        found = []
-        if self.trigger is not None:
-            # when trigger is specified, search trigger first and stop if not
-            # found:
-            if self.trigger_pat.count(data, data_lower) == 0:
-                return found
-        for m in self.pat.finditer(data):
-            valid = True
-            if self.filter is not None:
-                valid = self.filter(value=m.group(), index=m.start(), pattern=self)
-            if valid: found.append((m.start(), m.group()))
-            # debug message:
-            #else: print 'Filtered out %s: %s' % (self.name, repr(m.group()))
-        return found
-
-
-    def count (self, data, data_lower=None):
-        """
-        count all occurences of pattern in data.
-        data_lower should be set to data.lower(), if there are case-insensitive
-        patterns (it's better to do it only once)
-        return an integer
-        """
-        if self.trigger is not None:
-            # when trigger is specified, search trigger first and stop if not
-            # found:
-            if self.trigger_pat.count(data, data_lower) == 0:
-                return 0
-        # when no filter is defined, quickest way to count:
-        if self.filter is None:
-            return len(self.pat.findall(data))
-        # otherwise, need to call filter for each match:
-        c = 0
-        for m in self.pat.finditer(data):
-            valid = self.filter(value=m.group(), index=m.start(), pattern=self)
-            if valid: c += 1
-        return c
-
-
-#------------------------------------------------------------------------------
-class Balbuzard (object):
+# ------------------------------------------------------------------------------
+class Balbuzard(object):
     """
     class to scan a string of data, searching for a set of patterns (strings
     and regular expressions)
@@ -314,14 +158,12 @@ class Balbuzard (object):
 
     def __init__(self, patterns=None, yara_rules=None):
         self.patterns = patterns
-        if patterns == None:
+        if patterns is None:
             self.patterns = []
         self.yara_rules = yara_rules
 
-##    def add_pattern(self, name, regex=None, string=None, weight=1):
-##        self.patterns.append(Pattern(name, regex, string, weight))
 
-    def scan (self, data):
+    def scan(self, data):
         """
         Scans data for all patterns. This is an iterator: for each pattern
         found, yields the Pattern object and a list of matches as tuples
@@ -331,7 +173,7 @@ class Balbuzard (object):
         data_lower = data.lower()
         for pattern in self.patterns:
             matches = pattern.find_all(data, data_lower)
-            if len(matches)>0:
+            if len(matches) > 0:
                 yield pattern, matches
         if YARA and self.yara_rules is not None:
             for rules in self.yara_rules:
@@ -341,30 +183,30 @@ class Balbuzard (object):
                     pattern = Pattern(match.rule)
                     matches = []
                     for s in match.strings:
-                        offset, id, d = s
+                        offset, _, d = s
                         matches.append((offset, d))
                     yield pattern, matches
 
-    def scan_profiling (self, data):
+    def scan_profiling(self, data):
         """
         Scans data for all patterns. This is an iterator: for each pattern
         found, yields the Pattern object and a list of matches as tuples
         (index in data, matched string).
         Version with profiling, to check which patterns take time.
         """
-        start = time.clock()
+        start = time.process_time()
         # prep lowercase version of data for case-insensitive patterns
         data_lower = data.lower()
         for pattern in self.patterns:
-            start_pattern = time.clock()
+            start_pattern = time.process_time()
             matches = pattern.find_all(data, data_lower)
-            pattern.time = time.clock()-start_pattern
+            pattern.time = time.process_time() - start_pattern
             pattern.total_time += pattern.time
-            if len(matches)>0:
+            if len(matches) > 0:
                 yield pattern, matches
-        self.time = time.clock()-start
+        self.time = time.process_time() - start
 
-    def count (self, data):
+    def count(self, data):
         """
         Scans data for all patterns. This is an iterator: for each pattern
         found, yields the Pattern object and the count as int.
@@ -376,79 +218,53 @@ class Balbuzard (object):
             if count:
                 yield pattern, count
 
-    def scan_display (self, data, filename, hexdump=False, csv_writer=None, long_strings=False):
+    def scan_display(
+        self, data, filename, hexdump=False, csv_writer=None, long_strings=False
+    ):
         """
         Scans data for all patterns, displaying an hexadecimal dump for each
         match on the console (if hexdump=True), or one line for each
         match (if hexdump=False).
         """
+        results = []
         for pattern, matches in self.scan(data):
-            if hexdump:
-                print "-"*79
-                print "%s:" % pattern.name
             for index, match in matches:
-                # limit matched string display to 50 chars:
+                if isinstance(match, bytes) and match.isascii():
+                    match = match.decode('latin-1')
                 m = repr(match)
-                if len(m)> 50 and not long_strings:
-                    m = m[:24]+'...'+m[-23:]
-                if hexdump:
-                    print "at %08X: %s" % (index, m)
-                    # 5 lines of hexadecimal dump around the pattern: 2 lines = 32 bytes
-                    start = max(index-32, 0) & 0xFFFFFFF0
-                    index_end = index + len(match)
-                    end = min(index_end+32+15, len(data)) & 0xFFFFFFF0
-                    length = end-start
-                    #print start, end, length
-                    print hexdump3(data[start:end], length=16, startindex=start)
-                    print ""
-                else:
-                    print "at %08X: %s - %s" % (index, pattern.name, m)
-                if csv_writer is not None:
-                    #['Filename', 'Index', 'Pattern name', 'Found string', 'Length']
-                    csv_writer.writerow([filename, '0x%08X' % index, pattern.name,
-                        m, len(match)])
+                if len(m) > 50 and not long_strings:
+                    m = f"{m[:24]}...{m[-23:]}"
+                results.append([index, pattern.name, m, len(match)])
+        results = sorted(results, key=lambda x:x[0])
+        for entry in results:
+            index, pattern_name, m, match_len = entry
+            if hexdump:
+                print("-" * 79)
+                print(f"{pattern_name}:")
+                print(f"{index:08X}: {m}")
+                # 5 lines of hexadecimal dump around the pattern: 2 lines = 32 bytes
+                start = max(entry[0] - 32, 0) & 0xFFFFFFF0
+                index_end = index + len(match)
+                end = min(index_end + 32 + 15, len(data)) & 0xFFFFFFF0
+                length = end - start
+                print(hexdump3(data[start:end], length=16, startindex=start))
+                print("")
+             
+            else:
+                print(f"{index:08X}: {pattern_name} - {m}")
+            if csv_writer is not None:
+                csv_writer.writerow(
+                    [filename, f"0x{index:08X}", pattern_name, m, match_len]
+                )
         # blank line between each file:
-        print ''
-
-    ##            if item == "EXE MZ headers" and MAGIC:
-    ##                # Check if it's really a EXE header
-    ##                print "Magic: %s\n" % magic.whatis(data[m.start():])
+        print("")
 
 
 
-#--- GLOBALS ------------------------------------------------------------------
-
-patterns = []
-
-
-#--- FUNCTIONS ----------------------------------------------------------------
-
-##def add_pattern(name, regex=None, string=None, weight=1):
-##    patterns.append(Pattern(name, regex, string, weight))
+# --- FUNCTIONS ----------------------------------------------------------------
 
 
 # HEXDUMP from http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/142812
-
-FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
-
-##def hexdump(src, length=8):
-##    N=0; result=''
-##    while src:
-##       s,src = src[:length],src[length:]
-##       hexa = ' '.join(["%02X"%ord(x) for x in s])
-##       s = s.translate(FILTER)
-##       result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
-##       N+=length
-##    return result
-##
-##def hexdump2(src, length=8):
-##    result=[]
-##    for i in xrange(0, len(src), length):
-##       s = src[i:i+length]
-##       hexa = ' '.join(["%02X"%ord(x) for x in s])
-##       printable = s.translate(FILTER)
-##       result.append("%04X   %-*s   %s\n" % (i, length*3, hexa, printable))
-##    return ''.join(result)
 
 # my improved hexdump, to add a start index:
 def hexdump3(src, length=8, startindex=0):
@@ -457,40 +273,35 @@ def hexdump3(src, length=8, startindex=0):
     length: number of bytes per row.
     startindex: index of 1st byte.
     """
-    result=[]
-    for i in xrange(0, len(src), length):
-       s = src[i:i+length]
-       hexa = ' '.join(["%02X"%ord(x) for x in s])
-       printable = s.translate(FILTER)
-       result.append("%04X   %-*s   %s\n" % (i+startindex, length*3, hexa, printable))
-    return ''.join(result)
-
-
-def str_find_all(a_str, sub):
-    start = 0
-    while True:
-        start = a_str.find(sub, start)
-        if start == -1: return
-        yield start
-        start += len(sub)
+    FILTER = "".join([(len(repr(chr(x))) == 3) and chr(x) or "." for x in range(256)])
+    result = []
+    for i in range(0, len(src), length):
+        s = (src[i : i + length])
+        hexa = " ".join([f"{x:02X}" for x in s])
+        s = s.decode('latin-1')
+        printable = s.translate(FILTER)
+        result.append(f"{i+startindex:04X}   {hexa:<{(length * 3)}}   {printable}\n")
+    return "".join(result)
 
 
 # recursive glob function to find plugin files in any subfolder:
 # inspired by http://stackoverflow.com/questions/14798220/how-can-i-search-sub-folders-using-glob-glob-module-in-python
-def rglob (path, pattern='*.*'):
+def rglob(path, pattern="*.*"):
     """
     Recursive glob:
     similar to glob.glob, but finds files recursively in all subfolders of path.
     path: root directory where to search files
     pattern: pattern for filenames, using wildcards, e.g. *.txt
     """
-    #TODO: more compatible API with glob: use single param, split path from pattern
-    return [os.path.join(dirpath, f)
+    # TODO: more compatible API with glob: use single param, split path from pattern
+    return [
+        os.path.join(dirpath, f)
         for dirpath, dirnames, files in os.walk(path)
-        for f in fnmatch.filter(files, pattern)]
+        for f in fnmatch.filter(files, pattern)
+    ]
 
 
-def riglob (pathname):
+def riglob(pathname):
     """
     Recursive iglob:
     similar to glob.iglob, but finds files recursively in all subfolders of path.
@@ -498,12 +309,12 @@ def riglob (pathname):
     filenames, using wildcards, e.g. *.txt
     """
     path, filespec = os.path.split(pathname)
-    for dirpath, dirnames, files in os.walk(path):
+    for dirpath, _, files in os.walk(path):
         for f in fnmatch.filter(files, filespec):
             yield os.path.join(dirpath, f)
 
 
-def ziglob (zipfileobj, pathname):
+def ziglob(zipfileobj, pathname):
     """
     iglob in a zip:
     similar to glob.iglob, but finds files within a zip archive.
@@ -512,12 +323,12 @@ def ziglob (zipfileobj, pathname):
     filenames, using wildcards, e.g. *.txt
     """
     files = zipfileobj.namelist()
-    for f in files: print f
-    for f in fnmatch.filter(files, pathname):
-        yield f
+    for f in files:
+        print(f)
+    yield from fnmatch.filter(files, pathname)
 
 
-def iter_files(files, recursive=False, zip_password=None, zip_fname='*'):
+def iter_files(files, recursive=False, zip_password=None, zip_fname="*"):
     """
     Open each file provided as argument:
     - files is a list of arguments
@@ -536,120 +347,128 @@ def iter_files(files, recursive=False, zip_password=None, zip_fname='*'):
         for filename in iglob(filespec):
             if zip_password is not None:
                 # Each file is a zip archive:
-                print 'Opening zip archive %s with provided password' % filename
-                z = zipfile.ZipFile(filename, 'r')
-                print 'Looking for file(s) matching "%s"' % zip_fname
+                print(f"Opening zip archive {filename} with provided password")
+                z = zipfile.ZipFile(filename, "r")
+                print(f'Looking for file(s) matching "{zip_fname}"')
                 for filename in ziglob(z, zip_fname):
-                    print 'Opening file in zip archive:', filename
+                    print(f"Opening file in zip archive: {filename}")
                     data = z.read(filename, zip_password)
                     yield filename, data
             else:
                 # normal file
-                print 'Opening file', filename
-                data = open(filename, 'rb').read()
-                yield filename, data
-
-
-def relpath(path, start='.'):
-    """
-    convert a path to a relative path, using os.path.relpath on Python 2.6+
-    On Python 2.5 or older, the path is not changed, but no exception is raised.
-    (this function is just for backward compatibility)
-    """
-    # with python 2.6+, make it a relative path:
-    try:
-        return os.path.relpath(path, start)
-    except:
-        return path
-
-
-#=== INITALIZATION ============================================================
-
-# get main directory where this script is located:
-main_dir = os.path.dirname(__file__)
-#print 'main dir:', main_dir
-plugins_dir = os.path.join(main_dir, 'plugins')
-#print 'plugins dir:', plugins_dir
-
-# load patterns
-patfile = os.path.join(main_dir, 'patterns.py')
-# save __doc__, else it seems to be overwritten:
-d = __doc__
-#print 'patfile:', patfile
-execfile(patfile)
-__doc__ = d
-del d
+                print(f"Opening file {filename}")
+                with open(filename, "rb") as opened_file:
+                    data = opened_file.read()
+                    yield filename, data
 
 
 
-#=== MAIN =====================================================================
+# === MAIN =====================================================================
 
 def main():
-    usage = 'usage: %prog [options] <filename> [filename2 ...]'
-    parser = optparse.OptionParser(usage=usage)
-##    parser.add_option('-o', '--outfile', dest='outfile',
-##        help='output file')
-    parser.add_option('-c', '--csv', dest='csv',
-        help='export results to a CSV file')
-    parser.add_option("-v", action="store_true", dest="verbose",
-        help='verbose display, with hex view.')
-    parser.add_option("-r", action="store_true", dest="recursive",
-        help='find files recursively in subdirectories.')
-    parser.add_option("-z", "--zip", dest='zip_password', type='str', default=None,
-        help='if the file is a zip archive, open first file from it, using the provided password (requires Python 2.6+)')
-    parser.add_option("-f", "--zipfname", dest='zip_fname', type='str', default='*',
-        help='if the file is a zip archive, file(s) to be opened within the zip. Wildcards * and ? are supported. (default:*)')
-    parser.add_option("-l", "--long-strings", action="store_true", dest='long_strings', help='do not shorten strings found.')
 
-    (options, args) = parser.parse_args()
+    usage = "%(prog)s [options] <filename>"
+    parser = argparse.ArgumentParser(usage=usage)
+    parser.add_argument(
+        "file",
+        help="filename",
+        nargs="*",
+    )
+    parser.add_argument("-c", "--csv", dest="csv", help="export results to a CSV file")
+    parser.add_argument(
+        "-v",
+        action="store_true",
+        dest="verbose",
+        help="verbose display, with hex view.",
+    )
+    parser.add_argument(
+        "-r",
+        action="store_true",
+        dest="recursive",
+        help="find files recursively in subdirectories.",
+    )
+    parser.add_argument(
+        "-z",
+        "--zip",
+        dest="zip_password",
+        default=None,
+        help="if the file is a zip archive, open first file from it, using the provided password",
+    )
+    parser.add_argument(
+        "-f",
+        "--zipfname",
+        dest="zip_fname",
+        nargs="*",
+        help="if the file is a zip archive, file(s) to be opened within the zip.",
+    )
+    parser.add_argument(
+        "-l",
+        "--long-strings",
+        action="store_true",
+        dest="long_strings",
+        help="do not shorten strings found.",
+    )
+
+    args = parser.parse_args()
 
     # Print help if no argurments are passed
-    if len(args) == 0:
-        print __doc__
+    if len(sys.argv[1:]) == 0:
+        print(__doc__)
         parser.print_help()
-        sys.exit()
+        parser.exit()
 
     # load plugins
-    for f in rglob(plugins_dir, 'bbz*.py'): # glob.iglob('plugins/bbz*.py'):
-        print 'Loading plugin from', relpath(f, plugins_dir)
-        execfile(f)
+    for f in rglob(PLUGINS_DIR, "bbz*.py"):  # glob.iglob('plugins/bbz*.py'):
+        print(f"Loading plugin from {os.path.relpath(f, PLUGINS_DIR)}")
+        exec(compile(open(f, "rb").read(), f, "exec"))
 
     # load yara plugins
     if YARA:
         yara_rules = []
-        for f in rglob(plugins_dir, '*.yara'):  #glob.iglob('plugins/*.yara'):  # or bbz*.yara?
-            print 'Loading yara plugin from', relpath(f, plugins_dir)
+        for f in rglob(
+            PLUGINS_DIR, "*.yara"
+        ):  # glob.iglob('plugins/*.yara'):  # or bbz*.yara?
+            print(f"Loading yara rules from {os.path.relpath(f, PLUGINS_DIR)}")
             yara_rules.append(yara.compile(f))
     else:
         yara_rules = None
 
+    #for fname in args.file:
     # open CSV file
-    if options.csv:
-        print 'Writing output to CSV file: %s' % options.csv
-        csvfile = open(options.csv, 'wb')
+    if args.csv:
+        print(f"Writing output to CSV file: {args.csv}")
+        csvfile = open(args.csv, "w", newline='')
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(['Filename', 'Index', 'Pattern name',
-            'Found string', 'Length'])
+        csv_writer.writerow(
+            ["Filename", "Index", "Pattern name", "Found string", "Length"]
+        )
     else:
         csv_writer = None
 
-
     # scan each file provided as argument:
-    for filename, data in iter_files(args, options.recursive,
-        options.zip_password, options.zip_fname):
-        print "="*79
-        print "File: %s\n" % filename
+    for filename, data in iter_files(
+        args.file, args.recursive, args.zip_password, args.zip_fname
+    ):
+        print("=" * 79)
+        print(f"File: {filename}\n")
         if MAGIC:
-            print "Filetype according to magic: %s\n" % magic.whatis(data)
+            magic_object = magic.Magic(mime=True)
+            print(f"Filetype according to magic: {magic_object.from_buffer(data)}\n")
         bbz = Balbuzard(patterns, yara_rules=yara_rules)
-        bbz.scan_display(data, filename, hexdump=options.verbose, csv_writer=csv_writer, long_strings=options.long_strings)
+        bbz.scan_display(
+            data,
+            filename,
+            hexdump=args.verbose,
+            csv_writer=csv_writer,
+            long_strings=args.long_strings,
+        )
 
     # close CSV file
-    if options.csv:
+    if args.csv:
         csvfile.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
 # This was coded while listening to The National "Boxer".

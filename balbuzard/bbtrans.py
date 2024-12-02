@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 """
 bbtrans
 
@@ -7,11 +7,10 @@ combinations) to a file. This is useful to deobfuscate malware when the
 obfuscation scheme is known, or to test bbcrack.
 It is part of the Balbuzard package.
 
-Author: Philippe Lagadec - http://www.decalage.info
+Author: Philippe Lagadec
 License: BSD, see source code or documentation
 
-Project Repository: https://github.com/decalage2/balbuzard
-For more info and updates: http://www.decalage.info/balbuzard
+Project Repository: https://github.com/digitalsleuth/balbuzard
 """
 # LICENSE:
 #
@@ -39,90 +38,116 @@ For more info and updates: http://www.decalage.info/balbuzard
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # CHANGELOG:
 # 2013-03-28 v0.01 PL: - first version
 # 2013-12-09 v0.02 PL: - use hex for params instead of decimal
 # 2014-01-20 v0.03 PL: - use function from bbcrack to list transforms
 # 2019-06-16 v0.20 PL: - added main function for pip entry points (issue #8)
 
-__version__ = '0.20'
+__version__ = "1.00"
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # TODO:
 # + support wildcards and several files like balbuzard
 # - option to choose output filename
 
 
+import sys
+import argparse
+import zipfile
+import os
 
-from bbcrack import *
+try:
+    from bbcrack import list_transforms, transform_classes_all
+except (ImportError, ModuleNotFoundError):
+    from balbuzard.bbcrack import list_transforms, transform_classes_all
 
-import sys, optparse
 
 def main():
-    usage = 'usage: %prog [options] <filename>'
-    parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-t", "--transform", dest='transform', type='str', default=None,
-        help='transform to be applied (or "-t list" to display all available transforms)')
-    parser.add_option("-p", "--params", dest='params', type='str', default=None,
-        help='parameters for transform (comma separated list)')
-    parser.add_option("-z", "--zip", dest='zip_password', type='str', default=None,
-        help='if the file is a zip archive, open first file from it, using the provided password (requires Python 2.6+)')
+    usage = "%(prog)s [options] <filename>"
+    parser = argparse.ArgumentParser(usage=usage)
+    parser.add_argument(
+        "file",
+        help="filename",
+        nargs="*",
+    )
+    parser.add_argument(
+        "-t",
+        "--transform",
+        dest="transform",
+        default=None,
+        help='transform to be applied (or "-t list" to display all available transforms)',
+    )
+    parser.add_argument(
+        "-p",
+        "--params",
+        dest="params",
+        default=None,
+        help="parameters for transform (comma separated list)",
+    )
+    parser.add_argument(
+        "-z",
+        "--zip",
+        dest="zip_password",
+        default=None,
+        help="if the file is a zip archive, open first file from it, using the provided password",
+    )
 
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
     # if option "-t list", display list of transforms and quit:
-    if options.transform == 'list':
+    if args.transform == "list":
         list_transforms()
 
     # Print help if no argurments are passed
-    if len(args) == 0 or options.transform is None:
-        print __doc__
+    if len(sys.argv[1:]) == 0 or args.transform is None:
+        print(__doc__)
         parser.print_help()
         sys.exit()
 
-    fname = args[0]
-    if options.zip_password is not None:
-        # extract 1st file from zip archive, using password
-        pwd = options.zip_password
-        print 'Opening zip archive %s with password "%s"' % (fname, pwd)
-        z = zipfile.ZipFile(fname, 'r')
-        print 'Opening first file:', z.infolist()[0].filename
-        raw_data = z.read(z.infolist()[0], pwd)
-    else:
-        # normal file
-        print 'Opening file', fname
-        f = file(fname, 'rb')
-        raw_data = f.read()
-        f.close()
+    for fname in args.file:
+        raw_data = None
+        if args.zip_password is not None:
+            # extract 1st file from zip archive, using password
+            pwd = args.zip_password
+            print(f'Opening zip archive {fname} with password "{pwd}"')
+            with zipfile.ZipFile(fname, "r") as z:
+            #z = zipfile.ZipFile(fname, "r")
+                print(f"Opening first file: {z.infolist()[0].filename}")
+                raw_data = z.read(z.infolist()[0], pwd)
+        else:
+            # normal file
+            print(f"Opening file {fname}")
+            #f = open(fname, "rb")
+            with open(fname, "rb") as f:
+                raw_data = f.read()
+            #f.close()
+    
+    
+        params = args.params.split(",")
+        # params = map(int, params) # for decimal params
+        # convert hex params to int:
+        for i in range(len(params)):
+            params[i] = int(params[i], 16)
+        if len(params) == 1:
+            params = params[0]
+        else:
+            params = tuple(params)
+    
+        for Transform_class in transform_classes_all:
+            if Transform_class.gen_id == args.transform:
+                print(f"Transform class: {Transform_class.gen_name}")
+                print(f"Params: {params}")
+                transform = Transform_class(params)
+                print(f"Transform: {transform.name}")
+                base, ext = os.path.splitext(fname)
+                trans_fname = f"{base}_{transform.shortname}{ext}"
+                print(f"Saving to file {trans_fname}")
+                trans_data = transform.transform_string(raw_data)
+                with open(trans_fname, "wb") as outfile:
+                    outfile.write(trans_data.encode())
 
-##    fname = sys.argv[1]
-##    print 'Filename:', fname
-##    trans_id = sys.argv[2]
 
-    params = options.params.split(',')
-    #params = map(int, params) # for decimal params
-    # convert hex params to int:
-    for i in xrange(len(params)):
-        params[i] = int(params[i], 16)
-    if len(params)==1:
-        params = params[0]
-    else:
-        params = tuple(params)
-
-    for Transform_class in transform_classes_all:
-        if Transform_class.gen_id == options.transform:
-            print 'Transform class:', Transform_class.gen_name
-            print 'Params:', params
-            transform = Transform_class(params)
-            print 'Transform:', transform.name
-            base, ext = os.path.splitext(fname)
-            trans_fname = base+'_'+transform.shortname+ext
-            print 'Saving to file', trans_fname
-##            data = open(fname, 'rb').read()
-            trans_data = transform.transform_string(raw_data)
-            open(trans_fname, 'wb').write(trans_data)
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
