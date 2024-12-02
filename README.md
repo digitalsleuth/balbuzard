@@ -88,7 +88,6 @@ The easiest way is to use pip:
 python3 -m pip install git+https://github.com/digitalsleuth/balbuzard
 ```
 
-Notes:
 
 # How to contribute / report bugs / ask for help:
 
