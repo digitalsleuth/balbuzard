@@ -67,7 +67,8 @@ See <http://www.decalage.info/python/balbuzard> for more info and other tools.
 
 Follow all updates and news on Twitter: <https://twitter.com/decalage2>
 
-- **2019-06-16 v0.20**: added pip entry points to simplify installation and usage 
+- **2024-12-01 v1.0.0**: Ported to python3
+- 2019-06-16 v0.20: added pip entry points to simplify installation and usage 
 - 2014-05-22: Balbuzard v0.19 included in 
   [REMnux v5](http://blog.zeltser.com/post/86508269224/remnux-v5-release-for-malware-analysts), pre-installed and ready 
   to use.
@@ -84,16 +85,10 @@ Follow all updates and news on Twitter: <https://twitter.com/decalage2>
 
 The easiest way is to use pip:
 ```
-pip2 install -U balbuzard
+python3 -m pip install git+https://github.com/digitalsleuth/balbuzard
 ```
 
 Notes:
-- For now, balbuzard only runs on Python 2. So you may need to use `pip2` instead of `pip`, if Python 3 is the default 
-  on your system.
-- on Linux/Mac/Unix, add `sudo -H` in front of pip.
-
-See the [installation instructions](https://bitbucket.org/decalage/balbuzard/wiki/Installation).
-
 
 # How to contribute / report bugs / ask for help:
 
