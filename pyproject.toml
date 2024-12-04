@@ -14,15 +14,15 @@ dependencies = [
 ]
 requires-python = ">=3.6"
 authors = [
-  {name = "Corey Forman (digitalsleuth)", email = "github@digitalsleuth.ca"}
+  {name = "Philippe Lagadec / Corey Forman (digitalsleuth)", email = "github@digitalsleuth.ca"}
 ]
 maintainers = [
   {name = "Corey Forman (digitalsleuth)", email = "github@digitalsleuth.ca"}
 ]
-description = "Python 3 Malware Analysis Tool"
+description = "Package of malware analysis tools to extract patterns of interest from suspicious files, crack malware obfuscation such as XOR, ROL, etc by bruteforcing, and checking for those patterns."
 readme = "README.md"
 license = {file = "LICENSE"}
-keywords = ["digital forensics", "dfir", "malware", "reverse", "balbuzard"]
+keywords = ["digital forensics", "dfir", "malware", "reverse", "balbuzard", "bbcrack", "bbharvest", "bbtrans"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python :: 3",

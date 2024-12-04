@@ -8,6 +8,7 @@ obfuscation scheme is known, or to test bbcrack.
 It is part of the Balbuzard package.
 
 Author: Philippe Lagadec
+Maintainer: Corey Forman (digitalsleuth)
 License: BSD, see source code or documentation
 
 Project Repository: https://github.com/digitalsleuth/balbuzard
@@ -44,6 +45,7 @@ Project Repository: https://github.com/digitalsleuth/balbuzard
 # 2013-12-09 v0.02 PL: - use hex for params instead of decimal
 # 2014-01-20 v0.03 PL: - use function from bbcrack to list transforms
 # 2019-06-16 v0.20 PL: - added main function for pip entry points (issue #8)
+# 2024-12-03 v1.0.0 CF: - Ported all code to Python 3
 
 __version__ = "1.00"
 

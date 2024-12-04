@@ -7,6 +7,7 @@ malware analysis (IP addresses, domain names, known file headers and strings,
 etc).
 
 Author: Philippe Lagadec
+Maintainer: Corey Forman (digitalsleuth)
 License: BSD, see source code or documentation
 
 Project Repository: https://github.com/digitalsleuth/balbuzard
@@ -79,6 +80,7 @@ Project Repository: https://github.com/digitalsleuth/balbuzard
 # 2014-03-21 v0.19 PL: - fixed bug when Yara-python is not installed
 # 2014-06-29 v0.20 PL: - simplified bbcrack transforms, added Yara signatures
 # 2019-06-16       PL: - added main function for pip entry points (issue #8)
+# 2024-12-03 v1.0.0 CF: - Ported all code to Python 3
 
 __version__ = "1.00"
 

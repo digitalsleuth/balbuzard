@@ -52,6 +52,7 @@ For more info and updates: https://github.com/digitalsleuth/balbuzard
 # 2014-01-28 v0.06 PL: - improved word pattern for bbcrack
 #                      - improved Flash pattern
 # 2014-02-13 v0.07 PL: - added RTF patterns
+# 2024-12-03 v1.0.0 CF: - Ported all code to Python 3
 
 # ------------------------------------------------------------------------------
 # TODO:

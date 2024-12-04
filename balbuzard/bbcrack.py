@@ -9,6 +9,7 @@ strings, etc) using the balbuzard engine.
 It is part of the Balbuzard package.
 
 Author: Philippe Lagadec
+Maintainer: Corey Forman (digitalsleuth)
 License: BSD, see source code or documentation
 
 Project Repository: https://github.com/digitalsleuth/balbuzard
@@ -65,6 +66,7 @@ Project Repository: https://github.com/digitalsleuth/balbuzard
 # 2014-04-09 v0.13 PL: - added transform_int to simplify char transforms
 # 2014-05-22 v0.14 PL: - simplified all Transform_chars with transform_int
 # 2019-06-16 v0.20 PL: - added main function for pip entry points (issue #8)
+# 2024-12-03 v1.0.0 CF: - Ported all code to Python 3
 
 __version__ = "1.00"
 

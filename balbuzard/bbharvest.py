@@ -11,6 +11,7 @@ interest using the balbuzard engines.
 It is part of the Balbuzard package.
 
 Author: Philippe Lagadec
+Maintainer: Corey Forman (digitalsleuth)
 License: BSD, see source code or documentation
 
 Project Repository: https://github.com/digitalsleuth/balbuzard
@@ -53,12 +54,12 @@ Project Repository: https://github.com/digitalsleuth/balbuzard
 #                      - added -i option for incremental level
 # 2014-01-06 v0.05 PL: - added the possibility to write transform plugins
 # 2019-06-16 v0.20 PL: - added main function for pip entry points (issue #8)
+# 2024-12-03 v1.0.0 CF: - Ported all code to Python 3
 
 __version__ = "1.00"
 
 # ------------------------------------------------------------------------------
 # TODO:
-# + avoid duplicate code in main, using functions in bbcrack
 # + option to save copy of every matching file
 # + csv output for profiling mode
 # + main: same fix as balbuzard for fname in zip

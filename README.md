@@ -1,7 +1,7 @@
 Balbuzard
 =========
 
-[Balbuzard](http://www.decalage.info/python/balbuzard) is a package of malware analysis tools in python 
+[Balbuzard](http://www.decalage.info/python/balbuzard) is a package of malware analysis tools in Python 3 
 to **extract patterns of interest from suspicious files** (IP addresses, domain names, known file headers, 
 interesting strings, etc). 
 
@@ -9,65 +9,47 @@ It can also **crack malware obfuscation** such as XOR, ROL, etc by bruteforcing 
 
 Quick links: 
 [Download/Install](#download-and-install) - 
-[Documentation](https://bitbucket.org/decalage/balbuzard/wiki) - 
-[Contact](http://www.decalage.info/contact) - 
-[Report issues](https://github.com/decalage2/balbuzard/issues) - 
-[Updates on Twitter](https://twitter.com/decalage2)
+[Report issues](https://github.com/digitalsleuth/balbuzard/issues) - 
 
 ## Balbuzard tools:
 
-- [balbuzard](https://bitbucket.org/decalage/balbuzard/wiki/balbuzard/) is a tool to extract patterns of interest from 
+- balbuzard is a tool to extract patterns of interest from 
   malicious files, such as IP addresses, URLs, embedded files and typical malware strings. It is easily extensible with 
   new  patterns, regular expressions and Yara rules.
-- [bbcrack](https://bitbucket.org/decalage/balbuzard/wiki/bbcrack/) uses a new algorithm based on patterns of interest 
-  to bruteforce typical malware [obfuscation](https://bitbucket.org/decalage/balbuzard/wiki/Transforms) such as XOR, 
+- bbcrack uses a new algorithm based on patterns of interest 
+  to bruteforce typical malware obfuscation such as XOR, 
   ROL, ADD and various combinations, in order to guess which algorithms/keys have been used. 
-- [bbharvest](https://bitbucket.org/decalage/balbuzard/wiki/bbharvest/) extracts all patterns of interest found when 
-   applying typical malware [obfuscation transforms](https://bitbucket.org/decalage/balbuzard/wiki/Transforms) such as 
+- bbharvest extracts all patterns of interest found when 
+   applying typical malware obfuscation transforms such as 
    XOR, ROL, ADD and various combinations, trying all possible keys. It is especially useful when several keys or 
    several transforms are used in a single file.
-- [bbtrans](https://bitbucket.org/decalage/balbuzard/wiki/bbtrans/) can apply any of the 
-  [transforms](https://bitbucket.org/decalage/balbuzard/wiki/Transforms) from bbcrack (XOR, ROL, ADD and various 
-  combinations) to a file.
+- bbtrans can apply any of the 
+  transforms from bbcrack (XOR, ROL, ADD and various combinations) to a file.
 
 ## When to use these tools:
 
 - If you need to analyze a new malicious file, you can first try 
-  [balbuzard](https://bitbucket.org/decalage/balbuzard/wiki/balbuzard/) to extract strings/patterns of interest and 
-  detect embedded files in cleartext.
-- Then if you think the malicious file might use an 
-  [obfuscation algorithm](https://bitbucket.org/decalage/balbuzard/wiki/Transforms) such as XOR to hide interesting 
-  data (e.g. an embedded executable file), try [bbcrack](https://bitbucket.org/decalage/balbuzard/wiki/bbcrack/) to 
-  find the algorithm and the key(s).
+  balbuzard to extract strings/patterns of interest and detect embedded files in cleartext. 
+- Then if you think the malicious file might use an obfuscation algorithm such as XOR to hide interesting 
+  data (e.g. an embedded executable file), try bbcrack to find the algorithm and the key(s).  
 - Alternatively, if bbcrack is not successful, or if you think the file may use several 
-  [algorithms](https://bitbucket.org/decalage/balbuzard/wiki/Transforms) and/or keys, try 
-  [bbharvest](https://bitbucket.org/decalage/balbuzard/wiki/bbharvest/). bbharvest is especially targeted at single 
+  algorithms and/or keys, try bbharvest. bbharvest is especially targeted at single 
   strings obfuscated within an executable or malicious file.
 
-
-## 5 minutes demo
-
-See the [Demo](https://bitbucket.org/decalage/balbuzard/wiki/Demo/) page to see examples and test the tools by yourself 
-in a few minutes using the provided samples.
 
 ## Help wanted: 
 
 - if you have malware samples or malicious documents with known obfuscation algorithms such as XOR, please 
-  [contact me](http://www.decalage.info/contact). That will help me a lot to improve bbcrack and bbharvest.
+  contact me through the [Issues](https://github.com/digitalsleuth/balbuzard/issues) section for now. That will help a lot to improve bbcrack and bbharvest.
 - if you know other strings, patterns, file headers useful for malware analysis that Balbuzard should support, or 
-  other [obfuscation algorithms](https://bitbucket.org/decalage/balbuzard/wiki/Transforms), please 
-  [contact me](http://www.decalage.info/contact).
+  other obfuscation algorithms please let me know.  
 
-
-See <http://www.decalage.info/python/balbuzard> for more info and other tools.
 
 ----------------------------------------------------------------------------------
 
 # News
 
-Follow all updates and news on Twitter: <https://twitter.com/decalage2>
-
-- **2024-12-01 v1.0.0**: Ported to python3
+- **2024-12-03 v1.0.0**: Ported to python3, now maintained by Corey Forman (digitalsleuth)
 - 2019-06-16 v0.20: added pip entry points to simplify installation and usage 
 - 2014-05-22: Balbuzard v0.19 included in 
   [REMnux v5](http://blog.zeltser.com/post/86508269224/remnux-v5-release-for-malware-analysts), pre-installed and ready 
@@ -93,8 +75,7 @@ python3 -m pip install git+https://github.com/digitalsleuth/balbuzard
 
 These are open-source tools developed on my spare time. Any contribution such as code improvements, ideas, bug reports, 
 additional patterns or transforms would be highly appreciated. 
-You may contact me using [this online form](http://www.decalage.info/contact), by e-mail (decalage at laposte.net) or 
-use the [issue page on GitHub](https://github.com/decalage2/balbuzard/issues) to report bugs/ideas, or clone the 
+You may contact me using the [issue page on GitHub](https://github.com/digitalsleuth/balbuzard/issues) to report bugs/ideas, or clone the 
 project then send me pull requests to suggest changes.
 
 
