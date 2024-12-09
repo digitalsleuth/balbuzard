@@ -7,10 +7,11 @@ exclude = ["debian*", "binaries*", "build*", "dist*"]
 
 [project]
 name = "balbuzard"
-version = "1.0.0-rc1"
+version = "1.0.0-rc2"
 dependencies = [
     "python-magic",
     "yara-python",
+    "python-magic-win64 ; platform_system == 'Windows'",
 ]
 requires-python = ">=3.6"
 authors = [

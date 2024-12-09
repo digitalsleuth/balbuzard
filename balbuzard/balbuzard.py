@@ -128,12 +128,21 @@ import time
 import fnmatch
 import csv
 
-try:
-    import magic
+if os.sys.platform != 'win32':
+    try:
+        import magic
 
-    MAGIC = True
-except (ImportError, ModuleNotFoundError):
-    MAGIC = False
+        MAGIC = True
+    except (ImportError, ModuleNotFoundError):
+        MAGIC = False
+
+else:
+    try:
+        from winmagic import magic
+
+        MAGIC = True
+    except (ImportError, ModuleNotFoundError):
+        MAGIC = False
 
 try:
     import yara
@@ -428,7 +437,7 @@ def main():
     if YARA:
         yara_rules = []
         for f in rglob(
-            PLUGINS_DIR, "*.yara"
+            PLUGINS_DIR, "*.yar*"
         ):  # glob.iglob('plugins/*.yara'):  # or bbz*.yara?
             print(f"Loading yara rules from {os.path.relpath(f, PLUGINS_DIR)}")
             yara_rules.append(yara.compile(f))
