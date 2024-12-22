@@ -7,7 +7,7 @@ exclude = ["debian*", "binaries*", "build*", "dist*"]
 
 [project]
 name = "balbuzard"
-version = "1.0.0-rc2"
+version = "1.0.0"
 dependencies = [
     "python-magic",
     "yara-python",
